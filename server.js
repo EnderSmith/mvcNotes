@@ -2,20 +2,37 @@
 
 const Hapi = require('hapi');  // dependencies
 const Hoek = require('hoek');  // dependencies
+const Routes = require('./lib/routes');
 const Settings = require('./settings'); //dependencies
+// Import the index.js file inside the models directory
+const Models = require('./lib/models/');
+const Path = require('path');
 
 const server = new Hapi.Server(); // instantiate server
-server.connection({ port: Settings.port }); // tutorial says this is connection port 3000?
+server.connection({ port: Settings.port }); // port is determined in settings.js
 
-server.route({ //"our first route for our server will work as a test."
-  method: 'GET', // http method
-  path: '/', // path requested
-  handler: (request, reply) => { // arrow function is an anonymous function w/o its own this ( Node 4.0+ )
-    reply('Hello, world!');
+server.register([
+  require('vision')
+], (err) => {
+  Hoek.assert(!err, err);
+
+  // View settings
+  server.views({
+    engines: { pug: require('pug') },
+    path: Path.join(__dirname, 'lib/views'),
+    compileOptions: {
+      pretty: false
+    },
+    isCached: Settings.env === 'production'
+  });
+
+  // Add routes
+  server.route(Routes);
 });
 
-server.start((err) => {
-  Hoek.assert(!err, err); // we use Hoek to improve our error handling
-
-  console.log(`Server running at: ${server.info.uri}`); // log
+Models.sequelize.sync().then(() => {
+  server.start((err) => {
+    Hoek.assert(!err, err);
+    console.log(`Server running at: ${server.info.uri}`); // log
+  });
 });
